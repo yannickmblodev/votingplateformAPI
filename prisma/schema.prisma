@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        Role     @default(PROMOTER)
+  validatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // ✅ Champ relation inverse à Event
+  events      Event[]
+}
+
+
+enum Role {
+  ADMIN
+  PROMOTER
+}
+
+model Event {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  bannerUrl   String?
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      EventStatus @default(DRAFT)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  // ✅ Relation inverse
+  categories  Category[]
+}
+
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  title     String
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id])
+  createdAt DateTime  @default(now())
+  nominated   Nominee[] // ou nominees si tu préfères
+
+}
+
+model Nominee {
+  id          String    @id @default(cuid())
+  name        String
+  photo       String
+  description String?
+  createdAt   DateTime  @default(now())
+
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+
+  votes       Vote[]
+}
+
+// model Vote {
+//   id             String    @id @default(cuid())
+//   nomineeId      String
+//   nominee        Nominee   @relation(fields: [nomineeId], references: [id])
+//   phone          String
+//   transactionRef String    @unique
+//   status         Boolean   @default(false) // validé ?
+//   createdAt      DateTime  @default(now())
+// }
+
+model Vote {
+  id             String    @id @default(cuid())
+  nominee        Nominee   @relation(fields: [nomineeId], references: [id])
+  nomineeId      String
+  phone          String
+  quantity       Int       @default(1) // ← Ajouté ici
+  transactionRef String    @unique
+  status         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}
+
