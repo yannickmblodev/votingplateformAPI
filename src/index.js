@@ -46,12 +46,12 @@ app.use(
 app.options("*", (req, res) => res.sendStatus(204));
 
 // ----- ROUTES -----
-const authRoutes = require("./routes/auth.routes");
-const eventRoutes = require("./routes/event.routes");
-const categoryRoutes = require("./routes/category.routes");
-const nomineeRoutes = require("./routes/nominee.routes");
-const voteRoutes = require("./routes/vote.routes");
-const paymentRoutes = require("./routes/payment.routes");
+// const authRoutes = require("./routes/auth.routes");
+// const eventRoutes = require("./routes/event.routes");
+// const categoryRoutes = require("./routes/category.routes");
+// const nomineeRoutes = require("./routes/nominee.routes");
+// const voteRoutes = require("./routes/vote.routes");
+// const paymentRoutes = require("./routes/payment.routes");
 
 // Monte les routes
 app.use("/api/auth", authRoutes);
