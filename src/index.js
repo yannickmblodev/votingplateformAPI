@@ -22,36 +22,42 @@ const allowedOrigins = [
 // (Optionnel) autoriser les préviews Vercel : https://xxx-yyy-zzz.vercel.app
 const vercelPreviewRegex = /^https:\/\/.*-.*-.*\.vercel\.app$/i;
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Autoriser les outils sans Origin (Postman, curl, health checks)
-      if (!origin) return cb(null, true);
-      const ok =
-        allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin);
-      return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "x-app-secret",
-    ],
-    credentials: true, // nécessaire si tu utilises des cookies
-  })
-);
+// 1) Garde ton CORS global
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    const ok =
+      allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin);
+    return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "x-app-secret",
+  ],
+  credentials: true,
+};
+app.use(cors(corsOptions));
 
-// Répondre aux pré-vols (OPTIONS) partout
-app.options("*", (req, res) => res.sendStatus(204));
+// 2) Réponse aux pré-vols sans utiliser "*"
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    // Applique CORS puis renvoie 204
+    return cors(corsOptions)(req, res, () => res.sendStatus(204));
+  }
+  next();
+});
+
 
 // ----- ROUTES -----
-// const authRoutes = require("./routes/auth.routes");
-// const eventRoutes = require("./routes/event.routes");
-// const categoryRoutes = require("./routes/category.routes");
-// const nomineeRoutes = require("./routes/nominee.routes");
-// const voteRoutes = require("./routes/vote.routes");
-// const paymentRoutes = require("./routes/payment.routes");
+const authRoutes = require("./routes/auth.routes");
+const eventRoutes = require("./routes/event.routes");
+const categoryRoutes = require("./routes/category.routes");
+const nomineeRoutes = require("./routes/nominee.routes");
+const voteRoutes = require("./routes/vote.routes");
+const paymentRoutes = require("./routes/payment.routes");
 
 // Monte les routes
 app.use("/api/auth", authRoutes);
