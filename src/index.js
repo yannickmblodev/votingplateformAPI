@@ -1,27 +1,35 @@
+// index.js
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-// app.use(cors());
-app.use(express.json());
-// Si tu es derrière un proxy (Render), active ceci pour les cookies SameSite=None
-app.set('trust proxy', 1);
 
+// Important derrière un proxy HTTPS (Render) pour que secure cookies fonctionnent
+app.set("trust proxy", 1);
+
+// Parse JSON
+app.use(express.json());
+
+// ----- CORS -----
+// Renseigne NEXT_PUBLIC_API_URL côté front et FRONTEND_URL côté API en prod.
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  // ajoute ton domaine front en prod si tu as (ex: 'https://votefront.vercel.app')
-];
+  process.env.FRONTEND_URL, // ex: https://votefront.vercel.app ou https://mon-domaine.com
+].filter(Boolean);
+
+// (Optionnel) autoriser les préviews Vercel : https://xxx-yyy-zzz.vercel.app
+const vercelPreviewRegex = /^https:\/\/.*-.*-.*\.vercel\.app$/i;
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // autoriser aussi les outils sans origin (Postman)
+      // Autoriser les outils sans Origin (Postman, curl, health checks)
       if (!origin) return cb(null, true);
-      return allowedOrigins.includes(origin)
-        ? cb(null, true)
-        : cb(new Error("Not allowed by CORS"));
+      const ok =
+        allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin);
+      return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -30,42 +38,56 @@ app.use(
       "X-Requested-With",
       "x-app-secret",
     ],
-    credentials: true,
+    credentials: true, // nécessaire si tu utilises des cookies
   })
 );
 
-// (important) répondre aux pré-vols
-app.options('*', cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+// Répondre aux pré-vols (OPTIONS) partout
+app.options("*", (req, res) => res.sendStatus(204));
 
-
-// ⛳️ Ici, on importe tes routes auth
+// ----- ROUTES -----
 const authRoutes = require("./routes/auth.routes");
-app.use("/api/auth", authRoutes);
-
 const eventRoutes = require("./routes/event.routes");
-app.use("/api/events", eventRoutes);
-
 const categoryRoutes = require("./routes/category.routes");
-app.use("/api/categories", categoryRoutes);
-
 const nomineeRoutes = require("./routes/nominee.routes");
-app.use("/api/nominees", nomineeRoutes);
-
 const voteRoutes = require("./routes/vote.routes");
-app.use("/api/vote", voteRoutes);
-
 const paymentRoutes = require("./routes/payment.routes");
+
+// Monte les routes
+app.use("/api/auth", authRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/nominees", nomineeRoutes);
+app.use("/api/vote", voteRoutes);
 app.use("/api/payments", paymentRoutes);
 
-// Test route simple
+// Route test/health
 app.get("/", (req, res) => {
   res.send("API Awards Online is running ✅");
 });
 
-// Démarrer le serveur
+// ----- ERREUR GLOBALE CORS (message plus clair) -----
+app.use((err, req, res, next) => {
+  if (err && err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      ok: false,
+      error: "CORS_BLOCKED",
+      message:
+        "Origine non autorisée par CORS. Ajoute ton domaine dans FRONTEND_URL.",
+      origin: req.headers.origin || null,
+      allowed: allowedOrigins,
+    });
+  }
+  next(err);
+});
+
+// (optionnel) handler d'erreurs génériques
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+});
+
+// ----- LANCEMENT -----
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
